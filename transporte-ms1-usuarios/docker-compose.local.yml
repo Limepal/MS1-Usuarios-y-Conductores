@@ -1,0 +1,46 @@
+version: "3.9"
+
+# Entorno local para MS1: levanta PostgreSQL 16 + el microservicio en el
+# puerto 8001. Para uso en la laptop del dueño (dev). No es el compose de
+# producción (ese vive en transporte-infra/docker-compose.bd.yml).
+#
+# Uso:
+#   1) Copiar .env.example a .env y completar POSTGRES_PASS si se desea.
+#   2) docker compose -f docker-compose.local.yml up --build
+#   3) Swagger en http://localhost:8001/ms1/docs
+
+services:
+  db:
+    image: postgres:16
+    container_name: ms1_db_local
+    environment:
+      POSTGRES_DB: usuarios_db
+      POSTGRES_USER: app_ms1
+      POSTGRES_PASSWORD: ${POSTGRES_PASS:-app_ms1_local_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_ms1 -d usuarios_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ms1:
+    build: .
+    container_name: ms1_app
+    environment:
+      BD_HOST: db
+      POSTGRES_URL: postgresql://app_ms1:${POSTGRES_PASS:-app_ms1_local_dev}@db:5432/usuarios_db
+      PORT: 8001
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://localhost:8001}
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

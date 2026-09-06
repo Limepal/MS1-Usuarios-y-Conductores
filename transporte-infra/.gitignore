@@ -1,0 +1,16 @@
+# --- secretos ---
+.env
+*.env
+
+# --- Terraform ---
+terraform/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+# .terraform.lock.hcl SÍ se versiona (recomendado)
+
+# --- OS / editores ---
+.idea/
+.vscode/
+.DS_Store

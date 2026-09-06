@@ -1,0 +1,23 @@
+# --- Entorno y secretos (NO subir nunca) ---
+.env
+*.env
+.env.local
+.env.test
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Herramientas / OS ---
+.idea/
+.vscode/
+.DS_Store

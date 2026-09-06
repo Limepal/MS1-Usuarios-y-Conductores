@@ -1,0 +1,36 @@
+# =============================================================================
+# Docker Compose de la base de datos · se ejecuta en mv-bd (subred privada).
+# PostgreSQL 16 + esquema de MS1 cargado automáticamente.
+# Las variables vienen de un .env (ver .env.example); nunca hardcodear secretos.
+# =============================================================================
+#
+# Uso en mv-bd:
+#   cp .env.example .env        # completar POSTGRES_PASS
+#   docker compose -f docker-compose.bd.yml up -d
+#
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: bd_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: usuarios_db
+      POSTGRES_USER: app_ms1
+      # Se setea desde .env; el cluster inicia con el rol app_ms1 y la BD usuarios_db.
+      POSTGRES_PASSWORD: ${POSTGRES_PASS:?POSTGRES_PASS es obligatoria}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Inicialización automática del esquema de MS1 (solo la primera vez).
+      - ./../transporte-ms1-usuarios/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      # Solo alcanzable por la IP privada; el Security Group sg-bd restringe el origen.
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_ms1 -d usuarios_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
