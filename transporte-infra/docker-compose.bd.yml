@@ -1,13 +1,17 @@
 # =============================================================================
-# Docker Compose de la base de datos · se ejecuta en mv-bd (subred privada).
-# PostgreSQL 16 + esquema de MS1 cargado automáticamente.
-# Las variables vienen de un .env (ver .env.example); nunca hardcodear secretos.
-# =============================================================================
+# Bases de datos del proyecto · corre en mv-bd (subred privada).
+# PostgreSQL 16 (MS1) + MySQL 8 (MS2) + MongoDB 7 (MS3).
+# Reemplaza al compose que solo tenía Postgres.
 #
 # Uso en mv-bd:
-#   cp .env.example .env        # completar POSTGRES_PASS
+#   cp .env.example .env      # completar las 5 contraseñas
 #   docker compose -f docker-compose.bd.yml up -d
+#   docker compose -f docker-compose.bd.yml ps
 #
+# Los esquemas se cargan solos la PRIMERA vez que se crea cada volumen.
+# Si cambias un schema.sql después, hay que borrar el volumen para que se
+# vuelva a ejecutar:  docker compose down -v   (borra los datos)
+# =============================================================================
 
 services:
   postgres:
@@ -17,20 +21,61 @@ services:
     environment:
       POSTGRES_DB: usuarios_db
       POSTGRES_USER: app_ms1
-      # Se setea desde .env; el cluster inicia con el rol app_ms1 y la BD usuarios_db.
       POSTGRES_PASSWORD: ${POSTGRES_PASS:?POSTGRES_PASS es obligatoria}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Inicialización automática del esquema de MS1 (solo la primera vez).
-      - ./../transporte-ms1-usuarios/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
     ports:
-      # Solo alcanzable por la IP privada; el Security Group sg-bd restringe el origen.
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app_ms1 -d usuarios_db"]
-      interval: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql:
+    image: mysql:8
+    container_name: bd_mysql
+    restart: unless-stopped
+    command: --default-time-zone=+00:00 --character-set-server=utf8mb4
+    environment:
+      MYSQL_DATABASE: viajes_db
+      MYSQL_USER: app_ms2
+      MYSQL_PASSWORD: ${MYSQL_PASS:?MYSQL_PASS es obligatoria}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASS:?MYSQL_ROOT_PASS es obligatoria}
+    volumes:
+      - mysqldata:/var/lib/mysql
+      - ./init/mysql:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASS}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: bd_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS:?MONGO_ROOT_PASS es obligatoria}
+      MONGO_INITDB_DATABASE: calificaciones_db
+      # La usa init/mongo/01-usuario.js para crear app_ms3
+      MONGO_APP_PASS: ${MONGO_APP_PASS:?MONGO_APP_PASS es obligatoria}
+    volumes:
+      - mongodata:/data/db
+      - ./init/mongo:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
       timeout: 5s
       retries: 10
 
 volumes:
   pgdata:
+  mysqldata:
+  mongodata:
