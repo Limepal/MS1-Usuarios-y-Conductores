@@ -8,26 +8,37 @@ Cubre exactamente el Contrato Cero v1.0 §9 y el Plan Maestro Fase 1.
 ```
 terraform/
 ├── main.tf              # provider y bloques base
-├── vpc.tf               # VPC 10.0.0.0/16 + subredes + IGW + NAT (opcional)
-├── security_groups.tf   # sg-alb, sg-prod, sg-bd (reglas exactas del contrato)
-├── ec2.tf               # mv-prod-a, mv-prod-b, mv-bd (+ user_data Docker)
-├── variables.tf         # tipos de instancia, CIDR, IPs del equipo, etc.
+├── vpc.tf               # VPC 10.0.0.0/16 + 2 subredes públicas + privada + IGW + NAT
+├── security_groups.tf   # sg-alb, sg-prod, sg-bd (reglas exactas del contexto)
+├── ec2.tf               # mv-prod-a, mv-prod-b, mv-ingesta, mv-bd (+ user_data Docker)
+├── variables.tf         # tipos de instancia, CIDR, AZ, IPs del equipo, etc.
 └── outputs.tf           # IPs y SG resultantes
-docker-compose.bd.yml    # PostgreSQL 16 que corre en mv-bd
+docker-compose.bd.yml    # PostgreSQL 16 que corre en mv-bd (3 bases: lo mantiene P3)
 .env.example
+docs/README.md           # insumos para el diagrama de arquitectura (draw.io)
 ```
 
-## Topología (Fase 1)
+## Topología (según CONTEXTO-PROYECTO.md §3 y §6)
+
+```
+VPC 10.0.0.0/16
+  10.0.1.0/24  pública (AZ a)  → mv-prod-a, mv-ingesta
+  10.0.3.0/24  pública (AZ b)  → mv-prod-b   (2da AZ: la exige el balanceador)
+  10.0.2.0/24  PRIVADA (AZ a)  → mv-bd       (sin IP pública)
+```
 
 | Recurso | Subred | IP | Rol |
 |---------|--------|----|-----|
-| mv-prod-a | pública 10.0.1.0/24 | IP pública | correrá los 5 MS vía Docker Compose |
-| mv-prod-b | pública 10.0.1.0/24 | IP pública | ídem (alta disponibilidad) |
-| mv-bd | privada 10.0.2.0/24 | solo IP privada (10.0.2.x) | PostgreSQL 16 (hueco MySQL/Mongo P2/P3) |
+| mv-prod-a | pública A 10.0.1.0/24 | IP pública | correrá los 5 MS vía Docker Compose |
+| mv-prod-b | pública B 10.0.3.0/24 | IP pública | ídem (alta disponibilidad, 2da AZ) |
+| mv-ingesta | pública A 10.0.1.0/24 | IP pública | pull de las 3 bases → S3 (P5) |
+| mv-bd | privada 10.0.2.0/24 | solo IP privada (10.0.2.x) | PostgreSQL 16 (MySQL/Mongo los mantiene P2/P3) |
 
 Security Groups:
-- **sg-alb**: 80/tcp entrante (se ajustará cuando exista el VPC Link del API Gateway).
-- **sg-prod**: 8001–8005/tcp solo desde `sg-alb`; 22/tcp solo desde las IPs del equipo (`var.ip_equipo_cidr`).
+- **sg-alb**: 80/tcp entrante **solo desde la VPC** (`10.0.0.0/16`). ALB interno
+  para el VPC Link del API Gateway.
+- **sg-prod**: 8001–8005/tcp desde `sg-alb` **y desde `sg-prod`** (llamadas
+  inter-MS); 22/tcp solo desde las IPs del equipo (`var.ip_equipo_cidr`).
 - **sg-bd**: 5432/tcp, 3306/tcp, 27017/tcp solo desde `sg-prod`. **Ninguna** regla `0.0.0.0/0`.
 
 ## Aplicar con Terraform (cuenta de AWS Academy)
@@ -89,9 +100,9 @@ Aplicar:
 ```bash
 cd terraform
 terraform init
-terraform plan             # revisar lo que se va a crear
+terraform plan             # revisar lo que se va a crear (VPC + 4 instancias + 3 SG)
 terraform apply -auto-approve
-terraform output           # IP pública mv-prod-a/b y IP privada mv-bd (10.0.2.x)
+terraform output           # IP pública mv-prod-a/b, mv-ingesta y IP privada mv-bd (10.0.2.x)
 ```
 
 **Verificación Fase 1 (compuerta):**
@@ -138,8 +149,11 @@ docker compose -f docker-compose.bd.yml ps
 docker exec bd_postgres psql -U app_ms1 -d usuarios_db -c '\dt'
 ```
 
-> El compose monta `../transporte-ms1-usuarios/sql/schema.sql` en
+> El compose de este repo monta `../transporte-ms1-usuarios/sql/schema.sql` en
 > `docker-entrypoint-initdb.d`; ambos repos deben quedar adyacentes en `~/`.
+> NOTA: el `docker-compose.bd.yml` de este repo solo cubre PostgreSQL (MS1). La
+> versión con las 3 bases (pg + mysql + mongo) y carpeta `init/` la mantiene P3
+> en el repo compartido; P1 levanta PostgreSQL aquí y P3 parchea el resto.
 
 ### Fase 4 — Desplegar MS1 en las instancias prod
 
@@ -185,11 +199,17 @@ curl "http://<ip-mv-prod-a>:8001/ms1/usuarios?page=1&limit=20"
 nc -zv 10.0.2.10 5432
 ```
 
-### Fase 6 — (Futuro) API Gateway / ALB
+### Fase 6 — (Futuro) ALB interno + API Gateway + compose.prod
 
-El `sg-alb` ya acepta 80/tcp y `sg-prod` ya permite 8001–8005 solo desde `sg-alb`.
-Cuando exista el VPC Link / ALB del API Gateway, solo se actualiza la variable
-`API_GATEWAY_URL` en el `.env` de cada instancia prod y se reinicia el contenedor.
+- El `sg-alb` ya acepta 80/tcp solo desde la VPC (ALB interno para el VPC Link).
+  P2 crea el ALB interno con los 5 target groups y reglas por path (sobre
+  `mv-prod-a`/`mv-prod-b` en 8001–8005), y `sg-prod` ya permite 8001–8005 desde
+  `sg-alb` y entre instancias.
+- El `docker-compose.prod.yml` con las 5 imágenes (P1 pending #5) se creará
+  cuando existan las imágenes de MS2/MS4/MS5. Mientras, MS1 se despliega con
+  `docker run` (Fase 4).
+- Cuando exista el API Gateway (P3), solo se actualiza `API_GATEWAY_URL` en el
+  `.env` de cada instancia prod y se reinicia el contenedor.
 
 ## Verificación de la compuerta de Fase 1
 
@@ -232,3 +252,14 @@ Miramos que **no** haya reglas `0.0.0.0/0` hacia 5432 (solo `sg-prod`):
   temporalmente `22/tcp` a `sg-bd` desde la IP del equipo solo para la config
   inicial, y se retira al terminar. No se deja permanente; alternativa productiva
   es un bastion (ver Fase 2).
+- **2ª subred pública (10.0.3.0/24, AZ b)**: el contexto requiere que mv-prod-b
+  viva en una 2da AZ porque el ALB lo exige; la subred pública A (10.0.1.0/24)
+  aloja a mv-prod-a y mv-ingesta. La subred privada (10.0.2.0/24) quedó en la
+  misma AZ que el NAT por eficiencia.
+- **mv-ingesta en `sg-prod`**: la MV de ingesta (P5) necesita alcanzar `sg-bd`
+  (5432/3306/27017) para el pull del 100% de los registros hacia S3, y salir a
+  internet. Está en subred pública con egress completo y SSH del equipo, igual
+  que las instancias prod.
+- **sg-alb solo desde la VPC**: el ALB es interno (alimenta el VPC Link del API
+  Gateway), por eso `sg-alb` acepta 80/tcp únicamente desde `10.0.0.0/16` y no
+  desde `0.0.0.0/0`.

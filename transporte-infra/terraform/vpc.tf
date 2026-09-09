@@ -1,5 +1,8 @@
 # =============================================================================
-# VPC 10.0.0.0/16 con subred pública y privada + Internet Gateway.
+# VPC 10.0.0.0/16 con 2 subredes públicas + 1 privada + Internet Gateway.
+#   - 10.0.1.0/24 pública (AZ a)  -> mv-prod-a, mv-ingesta
+#   - 10.0.3.0/24 pública (AZ b)  -> mv-prod-b  (2da AZ: la exige el balanceador)
+#   - 10.0.2.0/24 PRIVADA (AZ a)  -> mv-bd (sin IP pública)
 # =============================================================================
 
 resource "aws_vpc" "principal" {
@@ -12,7 +15,7 @@ resource "aws_vpc" "principal" {
   }
 }
 
-# Subred pública (mv-prod-a, mv-prod-b, mv-ingesta)
+# Subred pública A (mv-prod-a, mv-ingesta)
 resource "aws_subnet" "publica" {
   vpc_id                  = aws_vpc.principal.id
   cidr_block              = var.cidr_subred_publica
@@ -20,15 +23,27 @@ resource "aws_subnet" "publica" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.proyecto}-${var.ambiente}-subred-publica"
+    Name = "${var.proyecto}-${var.ambiente}-subred-publica-a"
   }
 }
 
-# Subred privada (mv-bd, sin IP pública)
+# Subred pública B (mv-prod-b, 2da AZ exigida por el balanceador)
+resource "aws_subnet" "publica_b" {
+  vpc_id                  = aws_vpc.principal.id
+  cidr_block              = var.cidr_subred_publica_b
+  availability_zone       = "${var.aws_region}${var.az_publica_b}"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.proyecto}-${var.ambiente}-subred-publica-b"
+  }
+}
+
+# Subred privada (mv-bd, sin IP pública). Misma AZ que el NAT (eficiencia).
 resource "aws_subnet" "privada" {
   vpc_id                  = aws_vpc.principal.id
   cidr_block              = var.cidr_subred_privada
-  availability_zone       = "${var.aws_region}b"
+  availability_zone       = "${var.aws_region}a"
   map_public_ip_on_launch = false
 
   tags = {
@@ -36,7 +51,7 @@ resource "aws_subnet" "privada" {
   }
 }
 
-# Internet Gateway: entrada/salida de la subred pública
+# Internet Gateway: entrada/salida de las subredes públicas
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.principal.id
 
@@ -45,7 +60,7 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-# Tabla de rutas para la subred pública -> Internet Gateway
+# Tabla de rutas para las subredes públicas -> Internet Gateway
 resource "aws_route_table" "publica" {
   vpc_id = aws_vpc.principal.id
 
@@ -61,6 +76,11 @@ resource "aws_route_table" "publica" {
 
 resource "aws_route_table_association" "publica" {
   subnet_id      = aws_subnet.publica.id
+  route_table_id = aws_route_table.publica.id
+}
+
+resource "aws_route_table_association" "publica_b" {
+  subnet_id      = aws_subnet.publica_b.id
   route_table_id = aws_route_table.publica.id
 }
 

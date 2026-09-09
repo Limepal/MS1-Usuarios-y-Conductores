@@ -23,9 +23,21 @@ variable "cidr_vpc" {
 }
 
 variable "cidr_subred_publica" {
-  description = "Subred pública para mv-prod-a, mv-prod-b y mv-ingesta."
+  description = "Subred pública A para mv-prod-a y mv-ingesta (10.0.1.0/24)."
   type        = string
   default     = "10.0.1.0/24"
+}
+
+variable "cidr_subred_publica_b" {
+  description = "Subred pública B para mv-prod-b en la 2da AZ (10.0.3.0/24)."
+  type        = string
+  default     = "10.0.3.0/24"
+}
+
+variable "az_publica_b" {
+  description = "Segunda AZ para la subred pública B (la exige el balanceador)."
+  type        = string
+  default     = "b"
 }
 
 variable "cidr_subred_privada" {
@@ -61,7 +73,9 @@ variable "par_de_claves" {
 variable "ip_equipo_cidr" {
   description = "Lista de CIDR desde donde el equipo accede por SSH (22/tcp) a las instancias prod."
   type        = list(string)
-  default     = ["0.0.0.0/0"] # CAMBIAR por la IP pública del equipo: ["X.X.X.X/32"]
+  # OBLIGATORIO antes del apply: reemplazar por las IPs públicas reales del equipo,
+  # ej. ["X.X.X.X/32","Y.Y.Y.Y/32"]. No aplicar con 0.0.0.0/0.
+  default = ["0.0.0.0/0"]
 }
 
 variable "crear_nat_gateway" {

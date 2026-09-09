@@ -1,22 +1,23 @@
 # =============================================================================
-# Security Groups exactos (Contrato §9)
-#   - sg-prod : 8001-8005/tcp desde sg-alb ; 22/tcp desde IPs del equipo
+# Security Groups exactos (Contrato §9, actualizado al contexto)
+#   - sg-alb  : 80/tcp solo desde la VPC (10.0.0.0/16)
+#   - sg-prod : 8001-8005/tcp desde sg-alb y desde sg-prod ; 22/tcp desde IPs del equipo
 #   - sg-bd   : 5432/3306/27017/tcp solo desde sg-prod (sin 0.0.0.0/0)
-#   - sg-alb  : 80/tcp
 # =============================================================================
 
 # --- sg-alb: tráfico del balanceador / API Gateway ----------------------------
 resource "aws_security_group" "alb" {
   name        = "transporte-alb-sg"
-  description = "Security group del API Gateway / ALB (se ajustará con VPC Link)."
+  description = "Security group del ALB interno / API Gateway (VPC Link)."
   vpc_id      = aws_vpc.principal.id
 
+  # ALB interno: solo tráfico originado dentro de la VPC (p. ej. VPC Link).
   ingress {
-    description = "HTTP"
+    description = "HTTP desde la VPC"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   egress {
@@ -36,13 +37,22 @@ resource "aws_security_group" "prod" {
   description = "Acceso a microservicios (8001-8005) y SSH del equipo."
   vpc_id      = aws_vpc.principal.id
 
-  # Puertos de los 5 microservicios, SOLO desde sg-alb
+  # Puertos de los 5 microservicios desde el balanceador (sg-alb)
   ingress {
-    description     = "Microservicios desde el API Gateway"
+    description     = "Microservicios desde el ALB/API Gateway"
     from_port       = 8001
     to_port         = 8005
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
+  }
+
+  # Puertos de los 5 microservicios hacia otras instancias del grupo (inter-MS)
+  ingress {
+    description     = "Microservicios entre instancias prod"
+    from_port       = 8001
+    to_port         = 8005
+    protocol        = "tcp"
+    security_groups = [aws_security_group.prod.id]
   }
 
   # SSH solo desde las IPs del equipo (no 0.0.0.0/0)

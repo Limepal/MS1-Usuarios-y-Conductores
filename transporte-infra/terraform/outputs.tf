@@ -8,8 +8,13 @@ output "vpc_id" {
 }
 
 output "subred_publica_id" {
-  description = "Id de la subred pública."
+  description = "Id de la subred pública A."
   value       = aws_subnet.publica.id
+}
+
+output "subred_publica_b_id" {
+  description = "Id de la subred pública B (2da AZ)."
+  value       = aws_subnet.publica_b.id
 }
 
 output "subred_privada_id" {
@@ -25,6 +30,16 @@ output "ip_publica_mv_prod_a" {
 output "ip_publica_mv_prod_b" {
   description = "IP pública de mv-prod-b."
   value       = aws_instance.mv_prod_b.public_ip
+}
+
+output "ip_publica_mv_ingesta" {
+  description = "IP pública de mv-ingesta."
+  value       = aws_instance.mv_ingesta.public_ip
+}
+
+output "ip_privada_mv_ingesta" {
+  description = "IP privada de mv-ingesta."
+  value       = aws_instance.mv_ingesta.private_ip
 }
 
 output "ip_privada_mv_bd" {
