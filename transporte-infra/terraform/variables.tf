@@ -61,13 +61,13 @@ variable "tipo_instancia_bd" {
 variable "ami_id" {
   description = "AMI de Amazon Linux 2023 (Recomendado: AL2023 x86_64). Se debe ajustar por región."
   type        = string
-  default     = "ami-0e86e20dae9224db8"
+  default     = "ami-081b0a6eac00b4f53"
 }
 
 variable "par_de_claves" {
   description = "Nombre del par de claves (key pair) EC2 existente."
   type        = string
-  default     = ""
+  default     = "transporte-key"
 }
 
 variable "ip_equipo_cidr" {
@@ -75,7 +75,7 @@ variable "ip_equipo_cidr" {
   type        = list(string)
   # OBLIGATORIO antes del apply: reemplazar por las IPs públicas reales del equipo,
   # ej. ["X.X.X.X/32","Y.Y.Y.Y/32"]. No aplicar con 0.0.0.0/0.
-  default = ["0.0.0.0/0"]
+  default = ["38.224.230.64/32", "45.236.45.63/32"]
 }
 
 variable "crear_nat_gateway" {

@@ -12,12 +12,14 @@ resource "aws_security_group" "alb" {
   vpc_id      = aws_vpc.principal.id
 
   # ALB interno: solo tráfico originado dentro de la VPC (p. ej. VPC Link).
+
   ingress {
     description = "HTTP desde la VPC"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16"]
+
   }
 
   egress {
@@ -43,17 +45,11 @@ resource "aws_security_group" "prod" {
     from_port       = 8001
     to_port         = 8005
     protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
+    self = true
   }
 
   # Puertos de los 5 microservicios hacia otras instancias del grupo (inter-MS)
-  ingress {
-    description     = "Microservicios entre instancias prod"
-    from_port       = 8001
-    to_port         = 8005
-    protocol        = "tcp"
-    security_groups = [aws_security_group.prod.id]
-  }
+
 
   # SSH solo desde las IPs del equipo (no 0.0.0.0/0)
   dynamic "ingress" {
@@ -84,13 +80,21 @@ resource "aws_security_group" "bd" {
   description = "Acceso a PostgreSQL (5432), MySQL (3306) y MongoDB (27017), solo desde sg-prod."
   vpc_id      = aws_vpc.principal.id
 
+ingress {
+  description = "SSH temporal del equipo para configuracion"
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = var.ip_equipo_cidr
+}
+
   # PostgreSQL 16 -> MS1
   ingress {
     description     = "PostgreSQL"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.prod.id]
+    self = true
   }
 
   # Hueco MySQL (lo consumirá P2)
@@ -99,7 +103,7 @@ resource "aws_security_group" "bd" {
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-    security_groups = [aws_security_group.prod.id]
+     self = true
   }
 
   # Hueco MongoDB (lo consumirá P3)
@@ -108,7 +112,7 @@ resource "aws_security_group" "bd" {
     from_port       = 27017
     to_port         = 27017
     protocol        = "tcp"
-    security_groups = [aws_security_group.prod.id]
+     self = true
   }
 
   # NOTA: nada de 0.0.0.0/0. La mv-bd no es accesible desde internet.
@@ -116,9 +120,12 @@ resource "aws_security_group" "bd" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.prod.id]
+     self = true
   }
+
+
 
   # AWS no permite que el 'name' empiece con "sg-"; el tag conserva el nombre lógico.
   tags = { Name = "sg-bd" }
 }
+
