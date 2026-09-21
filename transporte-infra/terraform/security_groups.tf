@@ -41,11 +41,12 @@ resource "aws_security_group" "prod" {
 
   # Puertos de los 5 microservicios desde el balanceador (sg-alb)
   ingress {
-    description     = "Microservicios desde el ALB/API Gateway"
+    description     = "Microservicios desde el ALB/API Gateway y entre instancias"
     from_port       = 8001
     to_port         = 8005
     protocol        = "tcp"
-    self = true
+    security_groups = [aws_security_group.alb.id]
+    self            = true
   }
 
   # Puertos de los 5 microservicios hacia otras instancias del grupo (inter-MS)
@@ -81,11 +82,11 @@ resource "aws_security_group" "bd" {
   vpc_id      = aws_vpc.principal.id
 
 ingress {
-  description = "SSH temporal del equipo para configuracion"
-  from_port   = 22
-  to_port     = 22
-  protocol    = "tcp"
-  cidr_blocks = var.ip_equipo_cidr
+  description     = "SSH desde el bastion (sg-prod) para configuracion"
+  from_port       = 22
+  to_port         = 22
+  protocol        = "tcp"
+  security_groups = [aws_security_group.prod.id]
 }
 
   # PostgreSQL 16 -> MS1
@@ -94,7 +95,7 @@ ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    self = true
+    security_groups = [aws_security_group.prod.id]
   }
 
   # Hueco MySQL (lo consumirá P2)
@@ -103,7 +104,7 @@ ingress {
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-     self = true
+    security_groups = [aws_security_group.prod.id]
   }
 
   # Hueco MongoDB (lo consumirá P3)
@@ -112,15 +113,16 @@ ingress {
     from_port       = 27017
     to_port         = 27017
     protocol        = "tcp"
-     self = true
+    security_groups = [aws_security_group.prod.id]
   }
 
-  # NOTA: nada de 0.0.0.0/0. La mv-bd no es accesible desde internet.
+  # Ingress: nada de 0.0.0.0/0. La mv-bd no es accesible desde internet.
+  # Egress abierto para que mv-bd pueda instalar Docker y bajar imagenes via NAT.
   egress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-     self = true
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
 
