@@ -14,7 +14,7 @@ db.createCollection("calificaciones");
 db.calificaciones.createIndex({ viaje_id: 1 }, { unique: true });
 db.calificaciones.createIndex({ conductor_id: 1, creado_en: -1 });
 db.calificaciones.createIndex({ tags: 1 });
-db.calificaciones.createIndex({ comentario: "text" });
+db.calificaciones.createIndex({ comentario: "text" }, { default_language: "spanish" });
 
 db.createCollection("reportes");
 db.reportes.createIndex({ calificacion_id: 1, estado: 1 });

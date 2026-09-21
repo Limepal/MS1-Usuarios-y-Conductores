@@ -20,7 +20,10 @@ CREATE TABLE IF NOT EXISTS tarifas (
   tarifa_base        DECIMAL(10,2) NOT NULL,
   costo_por_km       DECIMAL(10,2) NOT NULL,
   costo_por_minuto   DECIMAL(10,2) NOT NULL,
-  recargo_hora_pico  DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  -- MULTIPLICADOR del subtotal en hora pico, no un recargo que se suma:
+  -- monto = (base + km*costo_por_km + min*costo_por_minuto) * multiplicador.
+  -- Valores 1.20..1.60, acordados con el seed de P3 (seed/seed_mysql.py:31-36).
+  multiplicador_hora_pico  DECIMAL(10,2) NOT NULL DEFAULT 1.00,
   activa             BOOLEAN       NOT NULL DEFAULT TRUE,
   PRIMARY KEY (id),
   CONSTRAINT ck_tarifas_tipo CHECK (tipo_servicio IN ('economico','estandar','confort','xl'))
@@ -79,15 +82,18 @@ CREATE TABLE IF NOT EXISTS paradas (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- Catalogo de tarifas (los 4 ids son fijos y los usan P3 y P5)
+-- Catalogo de tarifas (los 4 ids son fijos y los usan P3 y P5).
+-- Los 4 valores salen del bloque TARIFAS de seed/seed_mysql.py:31-36 (repo MS3).
+-- Ese script hace TRUNCATE y reinserta, asi que en un entorno sembrado mandan los
+-- suyos: si el seed cambia, este bloque cambia.
 -- ---------------------------------------------------------------------
 INSERT IGNORE INTO tarifas
-  (id, tipo_servicio, tarifa_base, costo_por_km, costo_por_minuto, recargo_hora_pico, activa)
+  (id, tipo_servicio, tarifa_base, costo_por_km, costo_por_minuto, multiplicador_hora_pico, activa)
 VALUES
-  (1, 'economico', 4.00,  1.10, 0.25, 1.50, TRUE),
-  (2, 'estandar',  5.50,  1.45, 0.32, 2.00, TRUE),
-  (3, 'confort',   8.00,  1.90, 0.45, 3.00, TRUE),
-  (4, 'xl',       11.00,  2.40, 0.55, 4.00, TRUE);
+  (1, 'economico', 4.00,  1.10, 0.25, 1.20, TRUE),
+  (2, 'estandar',  5.50,  1.45, 0.32, 1.35, TRUE),
+  (3, 'confort',   8.00,  1.95, 0.45, 1.50, TRUE),
+  (4, 'xl',       11.00,  2.40, 0.55, 1.60, TRUE);
 
 -- ---------------------------------------------------------------------
 -- Usuario de aplicacion (Contrato §9 · nunca root desde la app)
