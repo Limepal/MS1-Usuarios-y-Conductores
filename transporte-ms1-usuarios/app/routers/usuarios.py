@@ -19,10 +19,11 @@ from sqlalchemy.orm import Session
 from .. import reglas
 from ..database import get_db
 from ..models import Usuario
-from ..schemas import UsuarioOut
+from ..schemas import ListadoUsuarios, UsuarioOut, ValidacionUsuario, errores
 from ..utils.pagination import construir_listado, normalizar_paginacion
 
-router = APIRouter(prefix="/ms1", tags=["usuarios"])
+router = APIRouter(prefix="/ms1")
+REGLAS = ["Reglas · Usuarios"]
 
 
 def _usuario_o_404(db: Session, usuario_id: int) -> Usuario:
@@ -32,7 +33,10 @@ def _usuario_o_404(db: Session, usuario_id: int) -> Usuario:
     return usuario
 
 
-@router.get("/usuarios", response_model=dict)
+@router.get(
+    "/usuarios", response_model=None, tags=["Usuarios"], summary="Listar usuarios (paginado)",
+    responses={200: {"model": ListadoUsuarios}},
+)
 def listar_usuarios(
     distrito: str | None = Query(default=None, description="Filtro por distrito"),
     page: int | None = Query(default=None, ge=1),
@@ -63,7 +67,11 @@ def listar_usuarios(
     return construir_listado(items, total, page, limit)
 
 
-@router.get("/usuarios/{usuario_id}", response_model=UsuarioOut)
+@router.get(
+    "/usuarios/{usuario_id}", response_model=UsuarioOut, tags=["Usuarios"],
+    summary="Obtener usuario", description="MS2 lo usa para validar que el pasajero exista.",
+    responses=errores(404),
+)
 def obtener_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioOut:
     return UsuarioOut.model_validate(_usuario_o_404(db, usuario_id))
 
@@ -71,16 +79,24 @@ def obtener_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioOu
 # ---------------------------------------------------------------------------
 # Lógica de negocio
 # ---------------------------------------------------------------------------
-@router.get("/usuarios/{usuario_id}/validacion", response_model=dict)
+@router.get(
+    "/usuarios/{usuario_id}/validacion", response_model=ValidacionUsuario, tags=REGLAS,
+    summary="¿Puede el pasajero solicitar un viaje?", responses=errores(404),
+)
 def validar_usuario(usuario_id: int, db: Session = Depends(get_db)) -> dict:
-    """¿Puede el usuario solicitar un viaje? Activo, mayor de edad y con teléfono."""
+    """Puede viajar si está **activo**, tiene **18 años o más** (según
+    `fecha_nacimiento`) y tiene **teléfono**. Si no, `motivos` explica por qué."""
     u = _usuario_o_404(db, usuario_id)
     resultado = reglas.validar_pasajero(u.activo, u.fecha_nacimiento, u.telefono, date.today())
     return {"usuario_id": usuario_id, **resultado}
 
 
-@router.post("/usuarios/{usuario_id}/suspender", response_model=UsuarioOut)
+@router.post(
+    "/usuarios/{usuario_id}/suspender", response_model=UsuarioOut, tags=REGLAS,
+    summary="Suspender usuario", responses=errores(404, 409),
+)
 def suspender_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioOut:
+    """Pasa `activo` a false. 409 si ya estaba suspendido."""
     u = _usuario_o_404(db, usuario_id)
     if not u.activo:
         raise HTTPException(status_code=409, detail="el usuario ya está suspendido")
@@ -90,8 +106,12 @@ def suspender_usuario(usuario_id: int, db: Session = Depends(get_db)) -> Usuario
     return UsuarioOut.model_validate(u)
 
 
-@router.post("/usuarios/{usuario_id}/reactivar", response_model=UsuarioOut)
+@router.post(
+    "/usuarios/{usuario_id}/reactivar", response_model=UsuarioOut, tags=REGLAS,
+    summary="Reactivar usuario", responses=errores(404, 409),
+)
 def reactivar_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioOut:
+    """Pasa `activo` a true. 409 si ya estaba activo."""
     u = _usuario_o_404(db, usuario_id)
     if u.activo:
         raise HTTPException(status_code=409, detail="el usuario ya está activo")

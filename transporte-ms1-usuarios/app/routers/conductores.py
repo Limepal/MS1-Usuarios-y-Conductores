@@ -22,10 +22,22 @@ from .. import clientes, reglas
 from ..database import get_db
 from ..models import Conductor, Vehiculo
 from ..reglas import Rating
-from ..schemas import ConductorConVehiculos, ConductorOut, VehiculoBase, VehiculoOut
+from ..schemas import (
+    Categoria,
+    ConductorConVehiculos,
+    ConductorOut,
+    Disponibles,
+    Elegibilidad,
+    ListadoConductores,
+    ValidacionVehiculo,
+    VehiculoAValidar,
+    VehiculoOut,
+    errores,
+)
 from ..utils.pagination import construir_listado, normalizar_paginacion
 
-router = APIRouter(prefix="/ms1", tags=["conductores"])
+router = APIRouter(prefix="/ms1")
+REGLAS = ["Reglas · Conductores"]
 
 AVISO_MS3 = "ms3 no disponible: rating no evaluado"
 MAX_CANDIDATOS = 50  # tope de consultas a MS3 por búsqueda de disponibles
@@ -52,7 +64,10 @@ def _rating(conductor_id: int, advertencias: list[str]) -> Rating:
 # ---------------------------------------------------------------------------
 # Consultas (contrato con MS2 / MS4 / frontend)
 # ---------------------------------------------------------------------------
-@router.get("/conductores", response_model=dict)
+@router.get(
+    "/conductores", response_model=None, tags=["Conductores"], summary="Listar conductores (paginado)",
+    responses={200: {"model": ListadoConductores}},
+)
 def listar_conductores(
     distrito_base: str | None = Query(default=None, description="Filtro por distrito base"),
     page: int | None = Query(default=None, ge=1),
@@ -85,18 +100,22 @@ def listar_conductores(
 
 # Declarada antes de /conductores/{conductor_id} para que "disponibles" no
 # se interprete como un id.
-@router.get("/conductores/disponibles", response_model=dict)
+@router.get(
+    "/conductores/disponibles", response_model=Disponibles, tags=REGLAS,
+    summary="Ranking de conductores disponibles", responses=errores(400),
+)
 def conductores_disponibles(
     distrito_base: str | None = Query(default=None),
     tipo_servicio: str | None = Query(default=None, description="economico|estandar|confort|xl"),
     limit: int = Query(default=10, ge=1, le=50),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Conductores que pueden tomar un viaje ahora, ordenados por puntaje.
+    """Conductores que pueden tomar un viaje ahora, ordenados por **puntaje**
+    (80% rating + 20% antigüedad).
 
     Filtra activos (y distrito), descarta los que no tienen un vehículo apto
-    para el servicio pedido, consulta su rating en MS3 y ordena por
-    puntaje_asignacion (80% rating + 20% antigüedad).
+    para el servicio pedido y consulta su rating en **MS3**. Evalúa como máximo
+    50 candidatos por búsqueda. `tipo_servicio` inválido → 400.
     """
     if tipo_servicio is not None and tipo_servicio not in reglas.TIPOS_SERVICIO:
         raise HTTPException(
@@ -155,12 +174,22 @@ def conductores_disponibles(
     }
 
 
-@router.get("/conductores/{conductor_id}", response_model=ConductorConVehiculos)
+@router.get(
+    "/conductores/{conductor_id}", response_model=ConductorConVehiculos, tags=["Conductores"],
+    summary="Obtener conductor con sus vehículos",
+    description="MS2 lo usa para validar que el conductor exista; MS4 para la hoja de vida.",
+    responses=errores(404),
+)
 def obtener_conductor(conductor_id: int, db: Session = Depends(get_db)) -> ConductorConVehiculos:
     return ConductorConVehiculos.model_validate(_conductor_o_404(db, conductor_id, True))
 
 
-@router.get("/conductores/{conductor_id}/vehiculos", response_model=list[VehiculoOut])
+@router.get(
+    "/conductores/{conductor_id}/vehiculos", response_model=list[VehiculoOut], tags=["Conductores"],
+    summary="Vehículos del conductor (lista, no paginada)",
+    description="Devuelve una **lista** (no `{items: [...]}`); MS4 depende de esa forma.",
+    responses=errores(404),
+)
 def listar_vehiculos(conductor_id: int, db: Session = Depends(get_db)) -> list[VehiculoOut]:
     _conductor_o_404(db, conductor_id)
     stmt = select(Vehiculo).where(Vehiculo.conductor_id == conductor_id).order_by(Vehiculo.id)
@@ -170,12 +199,17 @@ def listar_vehiculos(conductor_id: int, db: Session = Depends(get_db)) -> list[V
 # ---------------------------------------------------------------------------
 # Lógica de negocio: evaluación del conductor
 # ---------------------------------------------------------------------------
-@router.get("/conductores/{conductor_id}/elegibilidad", response_model=dict)
+@router.get(
+    "/conductores/{conductor_id}/elegibilidad", response_model=Elegibilidad, tags=REGLAS,
+    summary="¿Puede operar el conductor y en qué servicios?", responses=errores(404),
+)
 def elegibilidad_conductor(conductor_id: int, db: Session = Depends(get_db)) -> dict:
-    """¿Puede operar el conductor y en qué servicios? Explica los motivos.
+    """Elegible = **activo** + **≥1 vehículo apto** + **rating ≥ 3.5** (rating de MS3;
+    solo se exige con 5 reseñas o más).
 
-    Elegible = activo AND >=1 vehículo apto AND rating (MS3) >= mínimo.
-    Con menos de 5 reseñas el rating aún no se exige.
+    Requisitos por servicio: economico ≤15 años · estandar ≤12 años y rating ≥4.0 ·
+    confort ≤6 años y rating ≥4.5 · xl ≤10 años, 6+ asientos y rating ≥4.0.
+    Si MS3 no responde, se evalúa sin rating y se agrega una advertencia (nunca 500).
     """
     c = _conductor_o_404(db, conductor_id, True)
     hoy = date.today()
@@ -195,9 +229,13 @@ def elegibilidad_conductor(conductor_id: int, db: Session = Depends(get_db)) -> 
     }
 
 
-@router.get("/conductores/{conductor_id}/categoria", response_model=dict)
+@router.get(
+    "/conductores/{conductor_id}/categoria", response_model=Categoria, tags=REGLAS,
+    summary="Nivel del conductor y comisión de la plataforma", responses=errores(404),
+)
 def categoria_conductor(conductor_id: int, db: Session = Depends(get_db)) -> dict:
-    """Nivel (nuevo/regular/senior/elite) por antigüedad + rating, y su comisión."""
+    """nuevo 25% · regular (1+ año) 20% · senior (3+ años, rating ≥4.3) 15% ·
+    elite (5+ años, rating ≥4.7) 10%. El rating viene de MS3."""
     c = _conductor_o_404(db, conductor_id)
     advertencias: list[str] = []
     rating = _rating(conductor_id, advertencias)
@@ -210,9 +248,12 @@ def categoria_conductor(conductor_id: int, db: Session = Depends(get_db)) -> dic
     }
 
 
-@router.post("/conductores/{conductor_id}/activar", response_model=ConductorOut)
+@router.post(
+    "/conductores/{conductor_id}/activar", response_model=ConductorOut, tags=REGLAS,
+    summary="Activar conductor suspendido", responses=errores(404, 409),
+)
 def activar_conductor(conductor_id: int, db: Session = Depends(get_db)) -> ConductorOut:
-    """Reactiva un conductor suspendido si tiene al menos un vehículo apto."""
+    """Solo si está suspendido **y** tiene al menos un vehículo apto; si no, 409."""
     c = _conductor_o_404(db, conductor_id, True)
     if c.activo:
         raise HTTPException(status_code=409, detail="el conductor ya está activo")
@@ -228,7 +269,10 @@ def activar_conductor(conductor_id: int, db: Session = Depends(get_db)) -> Condu
     return ConductorOut.model_validate(c)
 
 
-@router.post("/conductores/{conductor_id}/suspender", response_model=ConductorOut)
+@router.post(
+    "/conductores/{conductor_id}/suspender", response_model=ConductorOut, tags=REGLAS,
+    summary="Suspender conductor", responses=errores(404, 409),
+)
 def suspender_conductor(conductor_id: int, db: Session = Depends(get_db)) -> ConductorOut:
     """Suspende un conductor activo. Transición inversa de activar."""
     c = _conductor_o_404(db, conductor_id)
@@ -243,7 +287,11 @@ def suspender_conductor(conductor_id: int, db: Session = Depends(get_db)) -> Con
 # ---------------------------------------------------------------------------
 # Lógica de negocio: validación de vehículos (no persiste nada)
 # ---------------------------------------------------------------------------
-@router.post("/vehiculos/validar", response_model=dict, tags=["vehiculos"])
-def validar_vehiculo(payload: VehiculoBase) -> dict:
-    """Valida placa, antigüedad y capacidad contra el tipo de servicio pedido."""
+@router.post(
+    "/vehiculos/validar", response_model=ValidacionVehiculo, tags=["Reglas · Vehículos"],
+    summary="Validar un vehículo (no lo guarda)", responses=errores(422),
+)
+def validar_vehiculo(payload: VehiculoAValidar) -> dict:
+    """Revisa placa (`ABC-123`), antigüedad (máx. 15 años) y capacidad contra el
+    `tipo_servicio` pedido. Devuelve para qué servicios sí califica."""
     return reglas.validar_vehiculo(payload, date.today())

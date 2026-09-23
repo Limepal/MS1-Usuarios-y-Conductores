@@ -16,10 +16,25 @@ from .routers import conductores, health, usuarios
 app = FastAPI(
     title="MS1 - Usuarios y Conductores",
     description=(
-        "Microservicio de usuarios (pasajeros) y conductores con sus vehículos. "
-        "Formato ISO 8601 UTC con 'Z'. Listados {total,page,limit,items}."
+        "Usuarios (pasajeros), conductores y vehículos de la plataforma de transporte urbano.\n\n"
+        "MS1 **no crea ni borra registros** (los datos vienen del seed): expone las consultas que "
+        "usan MS2, MS4 y el frontend, y **reglas de negocio** sobre esos datos. El rating de los "
+        "conductores se consulta en **MS3** (timeout 5 s + 1 reintento; si no responde, "
+        "`advertencias` en vez de error).\n\n"
+        "Fechas en ISO 8601 UTC con `Z`. Listados `{total, page, limit, items}`. "
+        "Errores `{error, detalle}`."
     ),
-    version="1.0.0",
+    openapi_tags=[
+        {"name": "Usuarios", "description": "Consultas de pasajeros (las usan MS2, MS4 y el frontend)."},
+        {"name": "Conductores", "description": "Consultas de conductores y sus vehículos (MS2, MS4)."},
+        {"name": "Reglas · Usuarios", "description": "¿Puede viajar? · suspender / reactivar."},
+        {"name": "Reglas · Conductores",
+         "description": "Elegibilidad, categoría y comisión, ranking de disponibles, activar / suspender. "
+                        "Consumen el rating de MS3."},
+        {"name": "Reglas · Vehículos", "description": "Validación de vehículos contra requisitos de servicio."},
+        {"name": "Salud", "description": "Health check del Contrato Cero."},
+    ],
+    version="2.0.0",
     docs_url="/ms1/docs",
     redoc_url=None,
     openapi_url="/ms1/openapi.json",
