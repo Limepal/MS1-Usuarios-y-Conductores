@@ -6,7 +6,7 @@ DELETE de conductor cascada a sus vehículos (FK ON DELETE CASCADE).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -162,3 +162,95 @@ def crear_vehiculo(
         raise HTTPException(status_code=409, detail="placa ya registrada") from exc
     db.refresh(vehiculo)
     return VehiculoOut.model_validate(vehiculo)
+
+
+# ---------------------------------------------------------------------------
+# Lógica de negocio: ciclo de vida y elegibilidad del conductor
+# El estado se representa con la columna `activo` (no requiere migración).
+# Reglas de dominio: un conductor sólo opera si está activo, tiene licencia,
+# al menos un vehículo y una calificación promedio aceptable.
+# ---------------------------------------------------------------------------
+RATING_MINIMO = 3.5  # umbral de negocio para poder operar
+
+
+def _contar_vehiculos(db: Session, conductor_id: int) -> int:
+    return db.scalar(
+        select(func.count(Vehiculo.id)).where(Vehiculo.conductor_id == conductor_id)
+    ) or 0
+
+
+@router.post("/conductores/{conductor_id}/activar", response_model=ConductorOut)
+def activar_conductor(conductor_id: int, db: Session = Depends(get_db)) -> ConductorOut:
+    """Activa un conductor sólo si cumple las reglas de negocio.
+
+    Regla: no se puede activar sin licencia registrada ni sin al menos un
+    vehículo. Si ya está activo, la transición es inválida (409).
+    """
+    conductor = db.get(Conductor, conductor_id)
+    if conductor is None:
+        raise HTTPException(status_code=404, detail="conductor no existe")
+    if conductor.activo:
+        raise HTTPException(status_code=409, detail="el conductor ya está activo")
+    if not conductor.nro_licencia:
+        raise HTTPException(status_code=409, detail="no puede activarse sin licencia")
+    if _contar_vehiculos(db, conductor_id) == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="no puede activarse: el conductor no tiene vehículos registrados",
+        )
+    conductor.activo = True
+    db.commit()
+    db.refresh(conductor)
+    return ConductorOut.model_validate(conductor)
+
+
+@router.post("/conductores/{conductor_id}/suspender", response_model=ConductorOut)
+def suspender_conductor(
+    conductor_id: int,
+    motivo: str | None = Body(default=None, embed=True),
+    db: Session = Depends(get_db),
+) -> ConductorOut:
+    """Suspende (desactiva) un conductor activo. Transición inversa de activar."""
+    conductor = db.get(Conductor, conductor_id)
+    if conductor is None:
+        raise HTTPException(status_code=404, detail="conductor no existe")
+    if not conductor.activo:
+        raise HTTPException(status_code=409, detail="el conductor ya está inactivo")
+    conductor.activo = False
+    db.commit()
+    db.refresh(conductor)
+    return ConductorOut.model_validate(conductor)
+
+
+@router.get("/conductores/{conductor_id}/elegibilidad", response_model=dict)
+def elegibilidad_conductor(conductor_id: int, db: Session = Depends(get_db)) -> dict:
+    """Evalúa si un conductor puede operar y explica por qué (regla de negocio).
+
+    Elegible = activo AND tiene licencia AND tiene >=1 vehículo AND rating >= umbral.
+    Devuelve la decisión y la lista de motivos que la sustentan.
+    """
+    conductor = db.get(Conductor, conductor_id)
+    if conductor is None:
+        raise HTTPException(status_code=404, detail="conductor no existe")
+
+    n_vehiculos = _contar_vehiculos(db, conductor_id)
+    rating = float(conductor.calificacion_promedio or 0)
+
+    motivos: list[str] = []
+    if not conductor.activo:
+        motivos.append("conductor inactivo")
+    if not conductor.nro_licencia:
+        motivos.append("sin licencia registrada")
+    if n_vehiculos == 0:
+        motivos.append("sin vehículos registrados")
+    if rating < RATING_MINIMO:
+        motivos.append(f"rating {rating} por debajo del mínimo {RATING_MINIMO}")
+
+    return {
+        "conductor_id": conductor_id,
+        "elegible": len(motivos) == 0,
+        "rating_promedio": rating,
+        "vehiculos": n_vehiculos,
+        "activo": conductor.activo,
+        "motivos": motivos,
+    }
