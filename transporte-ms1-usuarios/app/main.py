@@ -38,7 +38,10 @@ app = FastAPI(
     docs_url="/ms1/docs",
     redoc_url=None,
     openapi_url="/ms1/openapi.json",
-    servers=[{"url": config.API_GATEWAY_URL, "description": "API Gateway"}],
+    servers=[
+        {"url": config.API_GATEWAY_URL, "description": "API Gateway (HTTPS)"},
+        {"url": "http://localhost:8001", "description": "local"},
+    ],
 )
 
 

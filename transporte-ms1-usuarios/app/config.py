@@ -43,7 +43,12 @@ POSTGRES_URL = _get_env("POSTGRES_URL", warn=False) or (
 )
 
 # --- Swagger (servers[] apuntando al futuro API Gateway) ------------------------
-API_GATEWAY_URL = _get_env("API_GATEWAY_URL") or "http://localhost:8001"
+# Server de "Try it out" en Swagger. Los paths ya incluyen /ms1, así que es la raíz
+# del gateway (sin /ms1).
+API_GATEWAY_URL = (
+    _get_env("API_GATEWAY_URL", warn=False)
+    or "https://h4sh35u9ac.execute-api.us-east-1.amazonaws.com"
+).rstrip("/")
 
 # --- MS3 (rating de conductores). Ej: http://<alb-interno>/ms3 --------------------
 # Si no se define, las reglas de rating se omiten con una advertencia.

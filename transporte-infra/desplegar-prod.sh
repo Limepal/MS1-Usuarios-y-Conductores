@@ -9,6 +9,7 @@ cd "$(dirname "$0")"
 
 REPOS=(
   "https://github.com/Limepal/MS1-Usuarios-y-Conductores.git"
+  "https://github.com/S1nk0-0/transporte-ms2-viajes.git"
   "https://github.com/enriquetorres-cell/transporte-ms3-calificaciones.git"
   "https://github.com/enriquetorres-cell/transporte-ms4.git"
   "https://github.com/enriquetorres-cell/transporte-ms5-analitica.git"

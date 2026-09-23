@@ -26,7 +26,8 @@ services:
       MS3_URL: "http://ms3:8003/ms3"   # rating de conductores (reglas de negocio)
 
   ms2:
-    image: enrique231/transporte-ms2:1.0.0
+    build: ./transporte-ms2-viajes
+    image: transporte-ms2:1.1
     container_name: ms2
     restart: unless-stopped
     ports: ["8002:8002"]
@@ -40,6 +41,7 @@ services:
       # POST /ms2/viajes valida pasajero y conductor contra MS1 (404 -> 422).
       VALIDAR_CON_MS1: "true"
       MS1_URL: "http://ms1:8001"
+      PUBLIC_URL: "https://h4sh35u9ac.execute-api.us-east-1.amazonaws.com/ms2"   # server de Swagger
 
   ms3:
     build: ./transporte-ms3-calificaciones
