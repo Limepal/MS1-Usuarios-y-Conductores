@@ -381,6 +381,32 @@
               ]
             }
           }
+        },
+        {
+          "name": "Crear viaje con pasajero inexistente -> 422 (MS2 consulta a MS1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pasajero_id\": 999999,\n  \"conductor_id\": 101,\n  \"vehiculo_id\": 101,\n  \"tarifa_id\": 2,\n  \"metodo_pago\": \"efectivo\",\n  \"distrito_origen\": \"Lince\",\n  \"distrito_destino\": \"Surco\",\n  \"direccion_origen\": \"Av. Arequipa 100\",\n  \"direccion_destino\": \"Av. Primavera 200\",\n  \"distancia_km\": 5.0,\n  \"duracion_min\": 15\n}"
+            },
+            "url": {
+              "raw": "{{base}}/ms2/viajes",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms2",
+                "viajes"
+              ]
+            }
+          }
         }
       ]
     },
