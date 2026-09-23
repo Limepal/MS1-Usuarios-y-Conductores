@@ -33,6 +33,9 @@ resource "aws_instance" "mv_prod_a" {
   vpc_security_group_ids = [aws_security_group.prod.id]
   key_name               = var.par_de_claves != "" ? var.par_de_claves : null
   user_data              = local.user_data_docker
+  # Rol del lab: MS5 lee Athena/S3 con credenciales que AWS renueva solo (sin
+  # pegar llaves cada sesión) y la MV queda administrable por SSM sin SSH.
+  iam_instance_profile = var.perfil_instancia
 
   tags = { Name = "mv-prod-a" }
 }
@@ -45,6 +48,9 @@ resource "aws_instance" "mv_prod_b" {
   vpc_security_group_ids = [aws_security_group.prod.id]
   key_name               = var.par_de_claves != "" ? var.par_de_claves : null
   user_data              = local.user_data_docker
+  # Rol del lab: MS5 lee Athena/S3 con credenciales que AWS renueva solo (sin
+  # pegar llaves cada sesión) y la MV queda administrable por SSM sin SSH.
+  iam_instance_profile = var.perfil_instancia
 
   tags = { Name = "mv-prod-b" }
 }

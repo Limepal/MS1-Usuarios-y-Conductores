@@ -75,11 +75,17 @@ variable "ip_equipo_cidr" {
   type        = list(string)
   # OBLIGATORIO antes del apply: reemplazar por las IPs públicas reales del equipo,
   # ej. ["X.X.X.X/32","Y.Y.Y.Y/32"]. No aplicar con 0.0.0.0/0.
-  default = ["38.224.230.64/32", "45.236.45.63/32", "132.251.2.193/32", "45.200.124.16/32"]
+  default = ["38.224.230.64/32", "45.236.45.63/32", "45.236.45.62/32", "132.251.2.193/32", "45.200.124.16/32"]
 }
 
 variable "crear_nat_gateway" {
   description = "Crea NAT Gateway para que mv-bd (subred privada) pueda instalar Docker y descargar imágenes, sin IP pública."
   type        = bool
   default     = true
+}
+
+variable "perfil_instancia" {
+  description = "Instance profile de mv-prod-a/b. En Learner Lab existe LabInstanceProfile (rol LabRole)."
+  type        = string
+  default     = "LabInstanceProfile"
 }

@@ -29,11 +29,11 @@ def ratings(monkeypatch):
 
 
 def _conductor(db, n=1, vehiculos=({},), **kw):
-    c = Conductor(
-        nombre="Carlos", apellido="Torres", email=f"c{n}@correo.pe",
-        telefono="988777666", nro_licencia=f"L-{n:05d}", distrito_base="Surco",
-        fecha_ingreso=date(2021, 1, 15), **kw,
-    )
+    c = Conductor(**{
+        "nombre": "Carlos", "apellido": "Torres", "email": f"c{n}@correo.pe",
+        "telefono": "988777666", "nro_licencia": f"L-{n:05d}", "distrito_base": "Surco",
+        "fecha_ingreso": date(2021, 1, 15), **kw,
+    })
     db.add(c)
     db.flush()
     for i, v in enumerate(vehiculos):

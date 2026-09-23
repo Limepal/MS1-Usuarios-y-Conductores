@@ -1,0 +1,758 @@
+{
+  "info": {
+    "name": "Transporte Urbano - CS2032",
+    "description": "Colección de pruebas de los microservicios via API Gateway. Importar en Postman y darle Send. La variable {{base}} ya apunta al API Gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base",
+      "value": "https://h4sh35u9ac.execute-api.us-east-1.amazonaws.com"
+    },
+    {
+      "key": "calif_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "MS1 - Usuarios y Conductores",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/health",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar usuarios (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/usuarios?page=1&limit=5",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "usuarios"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener usuario por id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/usuarios/1",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "usuarios",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar conductores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores?page=1&limit=5",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener conductor por id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores/101",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores",
+                "101"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vehículos de un conductor (lista)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores/101/vehiculos",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores",
+                "101",
+                "vehiculos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[Regla] Elegibilidad del conductor (rating desde MS3)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores/101/elegibilidad",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores",
+                "101",
+                "elegibilidad"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[Regla] Categoría y comisión del conductor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores/101/categoria",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores",
+                "101",
+                "categoria"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[Regla] Conductores disponibles (ranking)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores/disponibles?distrito_base=Miraflores&tipo_servicio=xl&limit=5",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores",
+                "disponibles"
+              ],
+              "query": [
+                {
+                  "key": "distrito_base",
+                  "value": "Miraflores"
+                },
+                {
+                  "key": "tipo_servicio",
+                  "value": "xl"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[Regla] ¿Puede viajar el pasajero?",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/usuarios/2/validacion",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "usuarios",
+                "2",
+                "validacion"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[Regla] Validar vehículo (no guarda)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base}}/ms1/vehiculos/validar",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "vehiculos",
+                "validar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"placa\": \"ABC-123\",\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Hiace\",\n  \"anio\": 2023,\n  \"capacidad\": 7,\n  \"tipo_servicio\": \"xl\"\n}"
+            }
+          }
+        },
+        {
+          "name": "[Regla] Suspender conductor",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores/600/suspender",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores",
+                "600",
+                "suspender"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[Regla] Activar conductor",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms1/conductores/600/activar",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms1",
+                "conductores",
+                "600",
+                "activar"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MS2 - Viajes",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms2/health",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms2",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar viajes (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms2/viajes?page=1&limit=5",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms2",
+                "viajes"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener viaje por id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms2/viajes/1",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms2",
+                "viajes",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar tarifas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms2/tarifas",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms2",
+                "tarifas"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MS3 - Calificaciones (CRUD demo)",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms3/health",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar calificaciones (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms3/calificaciones?page=1&limit=5",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "calificaciones"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filtrar por conductor y rating",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms3/calificaciones?conductor_id=101&min_rating=4&limit=5",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "calificaciones"
+              ],
+              "query": [
+                {
+                  "key": "conductor_id",
+                  "value": "101"
+                },
+                {
+                  "key": "min_rating",
+                  "value": "4"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "1) CREAR calificacion (POST)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j._id) { pm.collectionVariables.set('calif_id', j._id); console.log('calif_id =', j._id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"viaje_id\": 99001,\n  \"pasajero_id\": 5,\n  \"conductor_id\": 101,\n  \"rating\": 5,\n  \"tags\": [\"puntual\", \"amable\"],\n  \"comentario\": \"Excelente servicio - demo Postman\",\n  \"distrito_origen\": \"Miraflores\",\n  \"distrito_destino\": \"San Isidro\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base}}/ms3/calificaciones",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "calificaciones"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2) OBTENER la creada (GET por _id)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms3/calificaciones/{{calif_id}}",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "calificaciones",
+                "{{calif_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3) EDITAR la creada (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comentario\": \"Editado desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base}}/ms3/calificaciones/{{calif_id}}",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "calificaciones",
+                "{{calif_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4) BORRAR la creada (DELETE)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms3/calificaciones/{{calif_id}}",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "calificaciones",
+                "{{calif_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resumen de conductor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms3/conductores/101/resumen",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "conductores",
+                "101",
+                "resumen"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar reportes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms3/reportes?limit=5",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms3",
+                "reportes"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MS4 - Historial (orquestador)",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms4/health",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms4",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perfil de usuario (MS1+MS2+MS3)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms4/usuarios/5/perfil",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms4",
+                "usuarios",
+                "5",
+                "perfil"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hoja de vida de conductor (MS1+MS2+MS3)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms4/conductores/101/hoja-de-vida",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms4",
+                "conductores",
+                "101",
+                "hoja-de-vida"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detalle completo de viaje",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms4/viajes/1/detalle-completo",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms4",
+                "viajes",
+                "1",
+                "detalle-completo"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MS5 - Analítica (Athena)",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms5/health",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms5",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ingreso promedio por hora y distrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms5/ingresos/por-hora-distrito",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms5",
+                "ingresos",
+                "por-hora-distrito"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rating de conductores por distrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms5/conductores/rating-por-distrito",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms5",
+                "conductores",
+                "rating-por-distrito"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
