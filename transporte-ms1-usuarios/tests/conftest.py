@@ -55,11 +55,15 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-# Limpia las tablas entre tests para aislamiento.
+# Limpia las tablas entre tests para aislamiento (solo los que usan BD;
+# test_reglas.py corre sin PostgreSQL).
 @pytest.fixture(autouse=True)
-def _limpiar_bd(db_session):
+def _limpiar_bd(request):
     yield
+    if "db_session" not in request.fixturenames:
+        return
     from sqlalchemy import text
 
+    db_session = request.getfixturevalue("db_session")
     db_session.execute(text("TRUNCATE vehiculos, conductores, usuarios RESTART IDENTITY CASCADE"))
     db_session.commit()

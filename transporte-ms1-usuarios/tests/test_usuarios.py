@@ -1,80 +1,71 @@
-"""Tests de usuarios."""
-PAYLOAD = {
-    "nombre": "Ana",
-    "apellido": "Quispe",
-    "email": "ana.quispe@correo.pe",
-    "telefono": "999111222",
-    "distrito": "Miraflores",
-    "fecha_nacimiento": "1995-04-10",
-}
+"""Tests de usuarios: consultas (contrato con MS2/MS4/frontend) + lógica."""
+from datetime import date
+
+from app.models import Usuario
 
 
-def _crear_usuario(client, **overrides):
-    payload = {**PAYLOAD, **overrides}
-    return client.post("/ms1/usuarios", json=payload)
+def _usuario(db, **kw):
+    datos = {
+        "nombre": "Ana",
+        "apellido": "Quispe",
+        "email": "ana.quispe@correo.pe",
+        "telefono": "999111222",
+        "distrito": "Miraflores",
+        "fecha_nacimiento": date(1995, 4, 10),
+        **kw,
+    }
+    u = Usuario(**datos)
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    return u
 
 
-def test_crear_usuario(client):
-    respuesta = _crear_usuario(client)
-    assert respuesta.status_code == 201
-    cuerpo = respuesta.json()
-    assert cuerpo["id"] > 0
+def test_obtener_usuario(client, db_session):
+    u = _usuario(db_session)
+    cuerpo = client.get(f"/ms1/usuarios/{u.id}").json()
     assert cuerpo["nombre"] == "Ana"
-    assert cuerpo["email"] == "ana.quispe@correo.pe"
     assert cuerpo["activo"] is True
-    # fecha_registro en ISO 8601 UTC con Z
-    assert "Z" in cuerpo["fecha_registro"]
+    assert cuerpo["fecha_registro"].endswith("Z")
 
 
 def test_usuario_inexistente_404(client):
     respuesta = client.get("/ms1/usuarios/9999")
     assert respuesta.status_code == 404
-    cuerpo = respuesta.json()
-    assert "detalle" in cuerpo
+    assert respuesta.json()["error"] == "no existe"
 
 
-def test_email_duplicado_409(client):
-    _crear_usuario(client)
-    respuesta = _crear_usuario(client, email="ana.quispe@correo.pe")
-    assert respuesta.status_code == 409
+def test_listado_paginado_con_filtro(client, db_session):
+    _usuario(db_session, email="a@x.pe", distrito="Surco")
+    _usuario(db_session, email="b@x.pe", distrito="Lima")
+    cuerpo = client.get("/ms1/usuarios?distrito=Surco").json()
+    assert (cuerpo["total"], cuerpo["page"], cuerpo["limit"]) == (1, 1, 20)
+    assert cuerpo["items"][0]["distrito"] == "Surco"
 
 
-def test_obtener_usuario(client):
-    creado = _crear_usuario(client).json()
-    respuesta = client.get(f"/ms1/usuarios/{creado['id']}")
-    assert respuesta.status_code == 200
-    assert respuesta.json()["email"] == creado["email"]
+def test_ya_no_se_crean_usuarios(client):
+    assert client.post("/ms1/usuarios", json={}).status_code == 405
 
 
-def test_actualizar_usuario_completo(client):
-    creado = _crear_usuario(client).json()
-    actualizado = {**PAYLOAD, "nombre": "Ana Lucia", "activo": False}
-    respuesta = client.put(f"/ms1/usuarios/{creado['id']}", json=actualizado)
-    assert respuesta.status_code == 200
-    assert respuesta.json()["nombre"] == "Ana Lucia"
-    assert respuesta.json()["activo"] is False
+def test_validacion_usuario_ok(client, db_session):
+    u = _usuario(db_session)
+    cuerpo = client.get(f"/ms1/usuarios/{u.id}/validacion").json()
+    assert cuerpo["puede_solicitar_viaje"] is True
+    assert cuerpo["motivos"] == []
 
 
-def test_eliminar_usuario(client):
-    creado = _crear_usuario(client).json()
-    respuesta = client.delete(f"/ms1/usuarios/{creado['id']}")
-    assert respuesta.status_code == 204
-    assert client.get(f"/ms1/usuarios/{creado['id']}").status_code == 404
+def test_validacion_usuario_menor(client, db_session):
+    u = _usuario(db_session, fecha_nacimiento=date.today().replace(year=date.today().year - 15))
+    cuerpo = client.get(f"/ms1/usuarios/{u.id}/validacion").json()
+    assert cuerpo["puede_solicitar_viaje"] is False
+    assert cuerpo["edad"] == 15
 
 
-def test_listado_paginado_con_filtro(client):
-    _crear_usuario(client, email="a@correo.pe", distrito="Miraflores")
-    _crear_usuario(client, email="b@correo.pe", distrito="Lince")
-    _crear_usuario(client, email="c@correo.pe", distrito="Miraflores")
-
-    respuesta = client.get("/ms1/usuarios?distrito=Miraflores")
-    assert respuesta.status_code == 200
-    cuerpo = respuesta.json()
-    assert cuerpo["total"] == 2
-    assert cuerpo["page"] == 1
-    assert cuerpo["limit"] == 20
-    assert len(cuerpo["items"]) == 2
-
-    respuesta = client.get("/ms1/usuarios?page=1&limit=2")
-    assert respuesta.json()["limit"] == 2
-    assert respuesta.json()["total"] == 3
+def test_suspender_y_reactivar(client, db_session):
+    u = _usuario(db_session)
+    assert client.post(f"/ms1/usuarios/{u.id}/suspender").json()["activo"] is False
+    assert client.post(f"/ms1/usuarios/{u.id}/suspender").status_code == 409
+    validacion = client.get(f"/ms1/usuarios/{u.id}/validacion").json()
+    assert "usuario suspendido" in validacion["motivos"]
+    assert client.post(f"/ms1/usuarios/{u.id}/reactivar").json()["activo"] is True
+    assert client.post(f"/ms1/usuarios/{u.id}/reactivar").status_code == 409

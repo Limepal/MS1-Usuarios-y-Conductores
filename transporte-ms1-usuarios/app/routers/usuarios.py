@@ -1,22 +1,35 @@
-"""Rutas de usuarios de MS1.
+"""Rutas de usuarios (pasajeros) de MS1.
 
 Todas montadas bajo /ms1 vía APIRouter(prefix="/ms1").
-Listado paginado con filtro opcional ?distrito=.
+MS1 no crea ni borra usuarios (los datos se cargan por seed); expone
+consultas y lógica de negocio: validación para viajar y suspensión.
+
+Consumidores: MS2 (GET /usuarios/{id} para validar existencia), MS4 y el
+frontend (listado + detalle). Esas respuestas no cambian de forma.
 """
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .. import reglas
 from ..database import get_db
 from ..models import Usuario
-from ..schemas import UsuarioCreate, UsuarioOut, UsuarioUpdate
+from ..schemas import UsuarioOut
 from ..utils.pagination import construir_listado, normalizar_paginacion
 
 router = APIRouter(prefix="/ms1", tags=["usuarios"])
+
+
+def _usuario_o_404(db: Session, usuario_id: int) -> Usuario:
+    usuario = db.get(Usuario, usuario_id)
+    if usuario is None:
+        raise HTTPException(status_code=404, detail="usuario no existe")
+    return usuario
 
 
 @router.get("/usuarios", response_model=dict)
@@ -52,50 +65,37 @@ def listar_usuarios(
 
 @router.get("/usuarios/{usuario_id}", response_model=UsuarioOut)
 def obtener_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioOut:
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
-        raise HTTPException(status_code=404, detail="usuario no existe")
-    return UsuarioOut.model_validate(usuario)
+    return UsuarioOut.model_validate(_usuario_o_404(db, usuario_id))
 
 
-@router.post("/usuarios", response_model=UsuarioOut, status_code=201)
-def crear_usuario(payload: UsuarioCreate, db: Session = Depends(get_db)) -> UsuarioOut:
-    usuario = Usuario(**payload.model_dump(), activo=True)
-    db.add(usuario)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="email ya registrado",
-        ) from exc
-    db.refresh(usuario)
-    return UsuarioOut.model_validate(usuario)
+# ---------------------------------------------------------------------------
+# Lógica de negocio
+# ---------------------------------------------------------------------------
+@router.get("/usuarios/{usuario_id}/validacion", response_model=dict)
+def validar_usuario(usuario_id: int, db: Session = Depends(get_db)) -> dict:
+    """¿Puede el usuario solicitar un viaje? Activo, mayor de edad y con teléfono."""
+    u = _usuario_o_404(db, usuario_id)
+    resultado = reglas.validar_pasajero(u.activo, u.fecha_nacimiento, u.telefono, date.today())
+    return {"usuario_id": usuario_id, **resultado}
 
 
-@router.put("/usuarios/{usuario_id}", response_model=UsuarioOut)
-def actualizar_usuario(
-    usuario_id: int, payload: UsuarioUpdate, db: Session = Depends(get_db)
-) -> UsuarioOut:
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
-        raise HTTPException(status_code=404, detail="usuario no existe")
-    for campo, valor in payload.model_dump().items():
-        setattr(usuario, campo, valor)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="email ya registrado") from exc
-    db.refresh(usuario)
-    return UsuarioOut.model_validate(usuario)
-
-
-@router.delete("/usuarios/{usuario_id}", status_code=204, response_model=None)
-def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db)) -> None:
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
-        raise HTTPException(status_code=404, detail="usuario no existe")
-    db.delete(usuario)
+@router.post("/usuarios/{usuario_id}/suspender", response_model=UsuarioOut)
+def suspender_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioOut:
+    u = _usuario_o_404(db, usuario_id)
+    if not u.activo:
+        raise HTTPException(status_code=409, detail="el usuario ya está suspendido")
+    u.activo = False
     db.commit()
+    db.refresh(u)
+    return UsuarioOut.model_validate(u)
+
+
+@router.post("/usuarios/{usuario_id}/reactivar", response_model=UsuarioOut)
+def reactivar_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioOut:
+    u = _usuario_o_404(db, usuario_id)
+    if u.activo:
+        raise HTTPException(status_code=409, detail="el usuario ya está activo")
+    u.activo = True
+    db.commit()
+    db.refresh(u)
+    return UsuarioOut.model_validate(u)

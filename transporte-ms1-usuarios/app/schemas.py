@@ -11,8 +11,8 @@ from datetime import date, datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-# Enum de tipo_servicio válido (Contrato Cero v1.0 §4)
-TIPOS_SERVICIO = {"economico", "estandar", "confort", "xl"}
+# Enum de tipo_servicio válido (Contrato Cero v1.0 §4); definido en reglas.
+from .reglas import TIPOS_SERVICIO  # noqa: E402,F401
 
 
 def _formatear_utc_z(valor: datetime) -> str:
@@ -33,20 +33,6 @@ class UsuarioBase(BaseModel):
     distrito: str | None = None
     fecha_nacimiento: date | None = None
 
-
-class UsuarioCreate(UsuarioBase):
-    pass
-
-
-class UsuarioUpdate(BaseModel):
-    # PUT = actualización completa; activo controla disponibilidad.
-    nombre: str = Field(max_length=60)
-    apellido: str = Field(max_length=60)
-    email: str = Field(max_length=120)
-    telefono: str | None = None
-    distrito: str | None = None
-    fecha_nacimiento: date | None = None
-    activo: bool = True
 
 
 class UsuarioOut(UsuarioBase):
@@ -74,9 +60,6 @@ class VehiculoBase(BaseModel):
     tipo_servicio: str = Field(default="estandar", max_length=20)
 
 
-class VehiculoCreate(VehiculoBase):
-    pass
-
 
 class VehiculoOut(VehiculoBase):
     model_config = ConfigDict(from_attributes=True)
@@ -98,22 +81,6 @@ class ConductorBase(BaseModel):
     fecha_ingreso: date
     calificacion_promedio: float | None = Field(default=0, ge=0, le=5)
 
-
-class ConductorCreate(ConductorBase):
-    pass
-
-
-class ConductorUpdate(BaseModel):
-    # PUT = actualización completa.
-    nombre: str = Field(max_length=60)
-    apellido: str = Field(max_length=60)
-    email: str = Field(max_length=120)
-    telefono: str | None = None
-    nro_licencia: str = Field(max_length=20)
-    distrito_base: str | None = None
-    fecha_ingreso: date
-    calificacion_promedio: float | None = Field(default=0, ge=0, le=5)
-    activo: bool = True
 
 
 class ConductorOut(ConductorBase):
