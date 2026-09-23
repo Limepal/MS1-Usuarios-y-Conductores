@@ -1,0 +1,75 @@
+# =============================================================================
+# Microservicios del proyecto · corre en mv-prod-a y mv-prod-b (idéntico en ambas).
+# Fuente de verdad del despliegue: las imágenes se construyen EN la MV desde los
+# repos públicos (ver desplegar-prod.sh), así no dependen de una imagen vieja
+# en Docker Hub.
+#
+# Uso en la MV (home de ec2-user):
+#   cp .env.example .env         # completar POSTGRES_PASS, MYSQL_PASS, MONGO_APP_PASS
+#   ./desplegar-prod.sh          # clona/actualiza repos, construye y levanta todo
+#
+# MS5 NO lleva credenciales: usa el rol LabInstanceProfile de la MV (IMDS),
+# que AWS renueva solo. No montar ~/.aws aquí.
+# =============================================================================
+
+services:
+  ms1:
+    build: ./MS1-Usuarios-y-Conductores/transporte-ms1-usuarios
+    image: transporte-ms1-usuarios:2.0
+    container_name: ms1
+    restart: unless-stopped
+    ports: ["8001:8001"]
+    environment:
+      PORT: 8001
+      BD_HOST: ${BD_HOST:-10.0.2.85}
+      POSTGRES_URL: "postgresql://app_ms1:${POSTGRES_PASS:?falta POSTGRES_PASS}@${BD_HOST:-10.0.2.85}:5432/usuarios_db"
+      MS3_URL: "http://ms3:8003/ms3"   # rating de conductores (reglas de negocio)
+
+  ms2:
+    image: enrique231/transporte-ms2:1.0.0
+    container_name: ms2
+    restart: unless-stopped
+    ports: ["8002:8002"]
+    environment:
+      PORT: 8002
+      BD_HOST: ${BD_HOST:-10.0.2.85}
+      BD_PORT: 3306
+      BD_NOMBRE: viajes_db
+      BD_USUARIO: app_ms2
+      BD_CLAVE: ${MYSQL_PASS:?falta MYSQL_PASS}
+      VALIDAR_CON_MS1: "false"
+
+  ms3:
+    build: ./transporte-ms3-calificaciones
+    image: transporte-ms3:1.2
+    container_name: ms3
+    restart: unless-stopped
+    ports: ["8003:8003"]
+    environment:
+      PORT: 8003
+      PREFIX: /ms3
+      MONGO_URI: "mongodb://app_ms3:${MONGO_APP_PASS:?falta MONGO_APP_PASS}@${BD_HOST:-10.0.2.85}:27017/calificaciones_db?authSource=calificaciones_db"
+      VALIDAR_VIAJE: "false"
+
+  # MS4 y MS5 usan la red del host (llaman a localhost:800N / al IMDS).
+  ms4:
+    build: ./transporte-ms4
+    image: ms4img
+    container_name: ms4
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      MS1_URL: http://localhost:8001/ms1
+      MS2_URL: http://localhost:8002/ms2
+      MS3_URL: http://localhost:8003/ms3
+
+  ms5:
+    build: ./transporte-ms5-analitica/ms5
+    image: ms5img
+    container_name: ms5
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      AWS_REGION: us-east-1
+      GLUE_DATABASE: transporte_urbano
+      ATHENA_OUTPUT: s3://transporte-datalake-et/athena-results/
