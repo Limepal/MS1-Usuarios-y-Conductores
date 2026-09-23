@@ -777,6 +777,54 @@
               ]
             }
           }
+        },
+        {
+          "name": "Vista v_rating_conductor (top conductores)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms5/vistas/rating-conductor?limit=10",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms5",
+                "vistas",
+                "rating-conductor"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vista v_ingreso_hora_distrito (mejores franjas)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base}}/ms5/vistas/ingreso-hora-distrito?limit=10",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "ms5",
+                "vistas",
+                "ingreso-hora-distrito"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
         }
       ]
     }
