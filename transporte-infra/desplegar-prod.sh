@@ -6,6 +6,8 @@
 # Primera vez:  cp .env.example .env  (y completar las contraseñas)
 set -euo pipefail
 cd "$(dirname "$0")"
+[ -f .env ] || { echo "Falta .env (cp .env.example .env y completarlo)"; exit 1; }
+command -v git >/dev/null || sudo dnf install -y git
 
 REPOS=(
   "https://github.com/Limepal/MS1-Usuarios-y-Conductores.git"

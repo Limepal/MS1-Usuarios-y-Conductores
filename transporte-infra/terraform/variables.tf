@@ -85,7 +85,7 @@ variable "crear_nat_gateway" {
 }
 
 variable "perfil_instancia" {
-  description = "Instance profile de mv-prod-a/b. En Learner Lab existe LabInstanceProfile (rol LabRole)."
+  description = "Instance profile de las 4 MV (SSM Session Manager, S3 y Athena sin llaves). En Learner Lab existe LabInstanceProfile (rol LabRole)."
   type        = string
   default     = "LabInstanceProfile"
 }

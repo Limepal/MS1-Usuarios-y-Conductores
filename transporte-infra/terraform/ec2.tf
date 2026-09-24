@@ -63,6 +63,7 @@ resource "aws_instance" "mv_ingesta" {
   vpc_security_group_ids = [aws_security_group.prod.id]
   key_name               = var.par_de_claves != "" ? var.par_de_claves : null
   user_data              = local.user_data_docker
+  iam_instance_profile   = var.perfil_instancia
 
   # En sg-prod para poder alcanzar sg-bd (pull de las 3 bases) y salir a S3.
   tags = { Name = "mv-ingesta" }
@@ -76,6 +77,7 @@ resource "aws_instance" "mv_bd" {
   vpc_security_group_ids = [aws_security_group.bd.id]
   key_name               = var.par_de_claves != "" ? var.par_de_claves : null
   user_data              = local.user_data_docker
+  iam_instance_profile   = var.perfil_instancia
 
   tags = { Name = "mv-bd" }
 

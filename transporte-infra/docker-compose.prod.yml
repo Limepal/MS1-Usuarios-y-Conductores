@@ -5,7 +5,7 @@
 # en Docker Hub.
 #
 # Uso en la MV (home de ec2-user):
-#   cp .env.example .env         # completar POSTGRES_PASS, MYSQL_PASS, MONGO_APP_PASS
+#   cp .env.example .env         # completar contraseñas, BD_HOST, S3_BUCKET y API_GATEWAY_URL
 #   ./desplegar-prod.sh          # clona/actualiza repos, construye y levanta todo
 #
 # MS5 NO lleva credenciales: usa el rol LabInstanceProfile de la MV (IMDS),
@@ -24,6 +24,7 @@ services:
       BD_HOST: ${BD_HOST:-10.0.2.85}
       POSTGRES_URL: "postgresql://app_ms1:${POSTGRES_PASS:?falta POSTGRES_PASS}@${BD_HOST:-10.0.2.85}:5432/usuarios_db"
       MS3_URL: "http://ms3:8003/ms3"   # rating de conductores (reglas de negocio)
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://localhost:8001}   # server de Swagger
 
   ms2:
     build: ./transporte-ms2-viajes
@@ -41,7 +42,7 @@ services:
       # POST /ms2/viajes valida pasajero y conductor contra MS1 (404 -> 422).
       VALIDAR_CON_MS1: "true"
       MS1_URL: "http://ms1:8001"
-      PUBLIC_URL: "https://h4sh35u9ac.execute-api.us-east-1.amazonaws.com/ms2"   # server de Swagger
+      PUBLIC_URL: ${API_GATEWAY_URL:-http://localhost:8002}/ms2   # server de Swagger
 
   ms3:
     build: ./transporte-ms3-calificaciones
@@ -76,4 +77,4 @@ services:
     environment:
       AWS_REGION: us-east-1
       GLUE_DATABASE: transporte_urbano
-      ATHENA_OUTPUT: s3://transporte-datalake-et/athena-results/
+      ATHENA_OUTPUT: s3://${S3_BUCKET:?falta S3_BUCKET}/athena-results/
